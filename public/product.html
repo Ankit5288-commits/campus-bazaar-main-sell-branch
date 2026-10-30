@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Details - Campus Bazaar</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; padding: 20px; margin: 0; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; gap: 30px; }
+        .image-section { flex: 1; display: flex; flex-direction: column; align-items: center; }
+        .slider-container { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; }
+        .slider-wrapper { width: 100%; aspect-ratio: 1 / 1; text-align: center; }
+        .slider-wrapper img { width: 100%; height: 100%; border-radius: 8px; object-fit: cover; border: 1px solid #ddd; }
+        .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 14px; cursor: pointer; border-radius: 50%; font-size: 18px; user-select: none; z-index: 10; }
+        .slider-btn:hover { background: rgba(0,0,0,0.8); }
+        .prev-btn { left: -18px; }
+        .next-btn { right: -18px; }
+        .slider-dots { display: flex; gap: 8px; margin-top: 12px; justify-content: center; }
+        .dot { width: 10px; height: 10px; background-color: #ccc; border-radius: 50%; display: inline-block; cursor: pointer; }
+        .dot.active { background-color: #0066cc; }
+        .details-section { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+        h1 { margin: 0; font-size: 24px; color: #333; }
+        .price { font-size: 28px; font-weight: bold; color: #0066cc; }
+        .badge { display: inline-block; padding: 4px 8px; background: #eee; border-radius: 4px; font-size: 12px; font-weight: bold; color: #555; }
+        .btn { padding: 12px; background: #28a745; color: white; text-align: center; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: auto; }
+        .btn:hover { background: #218838; }
+        .back-link { display: inline-block; margin-bottom: 20px; text-decoration: none; color: #0066cc; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div style="max-width: 800px; margin: 0 auto;">
+        <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+    </div>
+
+    <div class="container" id="product-container">
+        <!-- Content will load here -->
+        <p>Loading product details...</p>
+    </div>
+
+    <script>
+        let productImages = [];
+        let currentSlideIndex = 0;
+
+        function changeSlide(direction) {
+            if (productImages.length === 0) return;
+            currentSlideIndex = (currentSlideIndex + direction + productImages.length) % productImages.length;
+            updateSlideDisplay();
+        }
+
+        function goToSlide(index) {
+            currentSlideIndex = index;
+            updateSlideDisplay();
+        }
+
+        function updateSlideDisplay() {
+            const imgEl = document.getElementById('current-slide-img');
+            if (imgEl && productImages[currentSlideIndex]) {
+                imgEl.src = productImages[currentSlideIndex];
+            }
+            const dots = document.querySelectorAll('.slider-dots .dot');
+            dots.forEach((dot, idx) => {
+                if (idx === currentSlideIndex) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+
+            // Get product ID from URL (e.g., /product?id=5)
+            const urlParams = new URLSearchParams(window.location.search);
+            const productId = urlParams.get('id');
+
+            if (!productId) {
+                document.getElementById('product-container').innerHTML = "<p>Product not found.</p>";
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/products/${productId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error("Failed to fetch product");
+                const product = await response.json();
+
+                productImages = product.images || [];
+                currentSlideIndex = 0;
+
+                const hasMultipleImages = productImages.length > 1;
+
+                let imageHtml = '';
+                if (productImages.length > 0) {
+                    imageHtml = `
+                        <div class="slider-container">
+                            ${hasMultipleImages ? `<button class="slider-btn prev-btn" onclick="changeSlide(-1)">&#10094;</button>` : ''}
+                            <div class="slider-wrapper">
+                                <img id="current-slide-img" src="${productImages[0]}" alt="${product.ProductName}">
+                            </div>
+                            ${hasMultipleImages ? `<button class="slider-btn next-btn" onclick="changeSlide(1)">&#10095;</button>` : ''}
+                        </div>
+                        ${hasMultipleImages ? `
+                            <div class="slider-dots">
+                                ${productImages.map((_, idx) => `<span class="dot ${idx === 0 ? 'active' : ''}" onclick="goToSlide(${idx})"></span>`).join('')}
+                            </div>
+                        ` : ''}
+                    `;
+                } else {
+                    imageHtml = `<div style="height:300px; background:#eee; display:flex; align-items:center; justify-content:center; border-radius:8px; width:100%;">No Image</div>`;
+                }
+
+                document.getElementById('product-container').innerHTML = `
+                    <div class="image-section">
+                        ${imageHtml}
+                    </div>
+                    <div class="details-section">
+                        <div>
+                            <span class="badge">${product.CategoryName}</span>
+                            <span class="badge" style="margin-left: 5px;">Condition: ${product.ConditionStatus}</span>
+                        </div>
+                        <h1>${product.ProductName}</h1>
+                        <div class="price">₹ ${product.SellingPrice}</div>
+                        
+                        <p style="color: #666; margin: 0;"><strong>Listed by:</strong> ${product.SellerName}</p>
+                        
+                        <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
+                            <h3 style="margin-top:0; font-size: 16px;">Details</h3>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Used for:</strong> ${product.UsageDuration || 'N/A'}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Purchased:</strong> ${product.PurchaseDateApprox || 'N/A'}</p>
+                            <p style="margin: 15px 0 5px 0; font-size: 14px;"><strong>Description:</strong><br> ${product.Description}</p>
+                            ${product.DefectDetails ? `<p style="margin: 10px 0 0 0; font-size: 14px; color: #d9534f;"><strong>Defects:</strong> ${product.DefectDetails}</p>` : ''}
+                        </div>
+
+                        <button class="btn" onclick="requestItem(${product.ProductID})">Express Interest to Buy</button>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                document.getElementById('product-container').innerHTML = "<p>Error loading product.</p>";
+            }
+        });
+
+        function requestItem(id) {
+            alert("This will insert a row into the InterestRequests table!");
+        }
+    </script>
+</body>
+</html>
